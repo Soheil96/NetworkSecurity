@@ -1,5 +1,6 @@
 import javax.security.auth.kerberos.*;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
 
@@ -22,14 +23,17 @@ public class Main {
         KerberosPrincipal kc2 = new KerberosPrincipal("c2@COSTUMER.COM");
         Costumer c2 = new Costumer("c2", kc2, n1);
         c2.start();
+
         n1.addMerchant(m1); n1.addMerchant(m2);
+        m1.addProduct("p1", "product1");
+        m1.addProduct("p2", "product2");
+
 
         /**
          * Purchase phase
          */
-        c1.setMerchant(m1);
-
-        ArrayList<String> text = new ArrayList<String>();text.add("hi");text.add("bye");
-        System.out.println(new SecFunctions().cryptographicChecksum(text));
+        TimeUnit.SECONDS.sleep(1);
+        c1.startPurchase(m1, "p4", 100, 0);
+        c1.startPurchase(m1, "p1", 100, 0);
     }
 }

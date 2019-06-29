@@ -1,18 +1,17 @@
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.security.auth.kerberos.*;
-import java.awt.image.AreaAveragingScaleFilter;
 import java.net.InetAddress;
 import java.security.*;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Date;
+import java.util.*;
 import java.nio.charset.StandardCharsets;
 
 
 public class SecFunctions {
 
-    public KerberosTicket getKerberosTicket(KerberosPrincipal client, KerberosPrincipal server){
+    public KerberosTicket getKerberosTicket(KerberosPrincipal client, KerberosPrincipal server, Date timeStamp){
+        Calendar calendar = new GregorianCalendar();
+        calendar.add(Calendar.MINUTE,10);
         return new KerberosTicket(
                 new byte[0],
                 client,
@@ -20,9 +19,9 @@ public class SecFunctions {
                 new byte[0],
                 0,
                 new boolean[0],
+                timeStamp,
                 new Date(),
-                new Date(),
-                new Date(),
+                calendar.getTime(),
                 new Date(),
                 new InetAddress[0]);
     }
@@ -40,7 +39,7 @@ public class SecFunctions {
     public ArrayList<String> encrypt(ArrayList<String> plainText, PublicKey pkey, SecretKey skey, String algorithm) throws Exception{
         ArrayList<String> cipherText = new ArrayList<String>();
         Cipher encryptCipher = Cipher.getInstance(algorithm);
-        encryptCipher.init(Cipher.ENCRYPT_MODE, (algorithm == "AES" ? skey : pkey));
+        encryptCipher.init(Cipher.ENCRYPT_MODE, (algorithm.equals("AES") ? skey : pkey));
         for(String text : plainText){
             cipherText.add(Base64.getEncoder().encodeToString(encryptCipher.doFinal(text.getBytes(StandardCharsets.UTF_8))));
         }
@@ -60,7 +59,7 @@ public class SecFunctions {
     public ArrayList<String> decrypt(ArrayList<String> chiperText, PrivateKey pkey, SecretKey skey, String algorithm) throws Exception{
         ArrayList<String> plainText = new ArrayList<String>();
         Cipher decryptCipher = Cipher.getInstance(algorithm);
-        decryptCipher.init(Cipher.DECRYPT_MODE, (algorithm == "AES" ? skey : pkey));
+        decryptCipher.init(Cipher.DECRYPT_MODE, (algorithm.equals("AES") ? skey : pkey));
         for(String text : chiperText){
             plainText.add(new String(decryptCipher.doFinal(Base64.getDecoder().decode(text)), StandardCharsets.UTF_8));
         }

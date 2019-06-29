@@ -52,4 +52,8 @@ public class Netbill implements Runnable{
     public PublicKey getPK() {
         return rsaKey.getPublic();
     }
+
+    public String toString() {
+        return "Netbill " + this.name;
+    }
 }
