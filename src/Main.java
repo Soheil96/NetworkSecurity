@@ -22,6 +22,8 @@ public class Main {
         Costumer c2 = new Costumer("c2", kc2, n1);
         c2.start();
 
+        System.out.println("salam");
+
         n1.addMerchant(m1); n1.addMerchant(m2);
 
         /**
