@@ -1,6 +1,7 @@
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.security.auth.kerberos.*;
+import java.awt.image.AreaAveragingScaleFilter;
 import java.net.InetAddress;
 import java.security.*;
 import java.util.ArrayList;
@@ -101,5 +102,15 @@ public class SecFunctions {
         publicSignature.initVerify(key);
         publicSignature.update(text.getBytes(StandardCharsets.UTF_8));
         return publicSignature.verify(Base64.getDecoder().decode(signature));
+    }
+
+    public String cryptographicChecksum(ArrayList<String> plainText) throws Exception{
+        String text = "";
+        for (String s: plainText) {
+            text += s;
+        }
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        String hash = Base64.getEncoder().encodeToString(digest.digest(text.getBytes(StandardCharsets.UTF_8)));
+        return hash;
     }
 }

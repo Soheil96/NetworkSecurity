@@ -1,4 +1,5 @@
 import javax.security.auth.kerberos.*;
+import java.util.ArrayList;
 
 public class Main {
 
@@ -21,14 +22,14 @@ public class Main {
         KerberosPrincipal kc2 = new KerberosPrincipal("c2@COSTUMER.COM");
         Costumer c2 = new Costumer("c2", kc2, n1);
         c2.start();
-
-        System.out.println("salam");
-
         n1.addMerchant(m1); n1.addMerchant(m2);
 
         /**
          * Purchase phase
          */
         c1.setMerchant(m1);
+
+        ArrayList<String> text = new ArrayList<String>();text.add("hi");text.add("bye");
+        System.out.println(new SecFunctions().cryptographicChecksum(text));
     }
 }
