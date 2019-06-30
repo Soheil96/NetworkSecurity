@@ -9,6 +9,14 @@ import java.nio.charset.StandardCharsets;
 
 public class SecFunctions {
 
+
+    /**
+     * It creates a Kerberos ticket for the client and the server that is valid for 10 minutes
+     * @param client
+     * @param server
+     * @param timeStamp
+     * @return
+     */
     public KerberosTicket getKerberosTicket(KerberosPrincipal client, KerberosPrincipal server, Date timeStamp){
         Calendar calendar = new GregorianCalendar();
         calendar.add(Calendar.MINUTE,10);
@@ -25,6 +33,7 @@ public class SecFunctions {
                 new Date(),
                 new InetAddress[0]);
     }
+
 
     /**
      * It does both symmetric and asymmetric encryption
@@ -46,6 +55,7 @@ public class SecFunctions {
         return cipherText;
     }
 
+
     /**
      * It does both symmetric and asymmetric decryption
      * For symmetric decryption, privateKey has to be null and algorithm has to "AES"
@@ -66,6 +76,7 @@ public class SecFunctions {
         return plainText;
     }
 
+
     /**
      * It gets a list of strings and returns a DSA of their concatenation
      * @param plainText
@@ -85,6 +96,7 @@ public class SecFunctions {
         return signature;
     }
 
+
     /**
      * It verifies a DSA on given list of strings
      * @param plainText
@@ -103,6 +115,13 @@ public class SecFunctions {
         return publicSignature.verify(Base64.getDecoder().decode(signature));
     }
 
+
+    /**
+     * It creates a cryptographic checksum for the array of objects
+     * @param plainText
+     * @return
+     * @throws Exception
+     */
     public String cryptographicChecksum(ArrayList<String> plainText) throws Exception{
         String text = "";
         for (String s: plainText) {

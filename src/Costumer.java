@@ -17,8 +17,9 @@ public class Costumer implements Runnable {
     private KeyPair rsaKey;
     private KerberosPrincipal kerberosP;
     private Netbill netbill;
-    private String pticket;
+    private String kticket;
     private SecretKey sessionKey;
+    private String encryptedProduct;
 
 
     @Override
@@ -35,12 +36,14 @@ public class Costumer implements Runnable {
         System.out.println("Costumer " + name + " is online!");
     }
 
+
     Costumer(String s, KerberosPrincipal kp, Netbill n){
         netbill = n;
         kerberosP = kp;
         name = s;
     }
-    
+
+
     public void start() {
         if (t == null) {
             t = new Thread (this, "Costumer" + name);
@@ -48,17 +51,58 @@ public class Costumer implements Runnable {
         }
     }
 
+
     public KerberosPrincipal getKerberosP() {
         return this.kerberosP;
     }
+
 
     public PublicKey getPK() {
         return rsaKey.getPublic();
     }
 
-    private void acceptOffer(Merchant merchant, int tid) {
 
+    /**
+     * TODO
+     * @param merchant
+     * @param EPOID
+     */
+    private void signPayment(Merchant merchant, ArrayList<String> EPOID) {
+        System.out.println("Product received!");
     }
+
+
+    /**
+     * It gets the product from the merchant and validates it
+     * @param merchant
+     * @param tid
+     * @throws Exception
+     */
+    private void acceptOffer(Merchant merchant, int tid) throws Exception {
+        ArrayList <String> request = new ArrayList<String>();
+        request.add(String.valueOf(tid));
+        request = new SecFunctions().encrypt(request, null, sessionKey, "AES");
+        request.add(kticket);
+        request = merchant.goodDelivery(this, request);
+        if (request == null) {
+            System.out.println(name + " : Ticket or TID not valid!");
+            return;
+        }
+
+        encryptedProduct = request.get(request.size() - 1);
+        request.remove(request.size() - 1);
+        request = new SecFunctions().decrypt(request, null, sessionKey, "AES");
+        ArrayList<String> good = new ArrayList<String>();
+        good.add(encryptedProduct);
+        String checksum = new SecFunctions().cryptographicChecksum(good);
+        if (!checksum.equals(request.get(request.size() - 1)))
+            System.out.println(name + " : Checksum failed!");
+        else {
+            request.remove(request.size() - 1);
+            signPayment(merchant, request);
+        }
+    }
+
 
     /**
      * This function indicates the purchase will still in the price negotiation phase or will go to the delivery phase
@@ -70,13 +114,18 @@ public class Costumer implements Runnable {
      */
     private void decidePurchase(Merchant merchant, String pName, int tid, ArrayList<String> details) throws Exception{
         if (details == null) {
-            System.out.println(name + " : The merchant doesn't have the product " + pName);
+            System.out.println(name + " : Ticket not valid or expired!");
             return;
         }
         details = new SecFunctions().decrypt(details, null, sessionKey, "AES");
+        if (details.get(2).equals("1")) {
+            System.out.println(name + " : The merchant doesn't have the product " + pName + "!");
+            return;
+        }
+
         System.out.println(name + " : Merchant's suggested price for the product " + pName + " is " + details.get(1));
         Scanner scanner = new Scanner(System.in);
-        System.out.println("Accept or Deny or New Offer?");
+        System.out.println("Accept or Deny or NewOffer?");
         String ans = scanner.next();
         if (ans.equals("Deny"))
             return;
@@ -87,6 +136,7 @@ public class Costumer implements Runnable {
         System.out.println("New price offer: ");
         startPurchase(merchant, pName, scanner.nextInt(), tid + 1);
     }
+
 
     /**
      * initiates the first contact between the costumer and the merchant
@@ -100,13 +150,14 @@ public class Costumer implements Runnable {
         if (tid == 0) {
             ArrayList<String> keyTicket = getSessionKey(merchant);
             if (keyTicket == null) {
-                System.out.println(name + " : The signature rejected by the merchant");
+                System.out.println(name + " : The signature rejected by the merchant!");
                 return;
             }
             byte[] decodedKey = Base64.getDecoder().decode(keyTicket.get(0));
             sessionKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
-            pticket = keyTicket.get(1);
+            kticket = keyTicket.get(1);
         }
+
         ArrayList<String> request = new ArrayList<String>();
         request.add(this.name);
         request.add(pName);
@@ -114,9 +165,11 @@ public class Costumer implements Runnable {
         request.add("0");
         request.add(String.valueOf(tid));
         request = new SecFunctions().encrypt(request, null, sessionKey, "AES");
-        ArrayList<String> answer = merchant.askPrice(this, pticket, request);
+        request.add(kticket);
+        ArrayList<String> answer = merchant.askPrice(this, request);
         decidePurchase(merchant, pName, tid, answer);
     }
+
 
     /**
      * Contacts the merchant to get session key before initiating the purchase process
@@ -132,11 +185,13 @@ public class Costumer implements Runnable {
         SecretKey key = KeyGenerator.getInstance("AES").generateKey();
         String encodedKey = Base64.getEncoder().encodeToString(key.getEncoded());
         request.add(String.valueOf(encodedKey));
+
         request = new SecFunctions().encrypt(request, merchant.getPK(), null, "RSA");
-        String signature = new SecFunctions().sign(request, rsaKey.getPrivate());
-        ArrayList<String> answer = merchant.getTicket(this, request, signature);
+        request.add(new SecFunctions().sign(request, rsaKey.getPrivate()));
+        ArrayList<String> answer = merchant.getTicket(this, request);
         return new SecFunctions().decrypt(answer, null, key, "AES");
     }
+
 
     public String toString() {
         return "Costumer " + this.name;

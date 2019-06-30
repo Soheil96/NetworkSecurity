@@ -24,10 +24,12 @@ public class Netbill implements Runnable{
         System.out.println("Netbill " + name + " is online!");
     }
 
+
     Netbill(String s, KerberosPrincipal kp){
         name = s;
         kerberosP = kp;
     }
+
 
     public void start() {
         if (t == null) {
@@ -36,22 +38,27 @@ public class Netbill implements Runnable{
         }
     }
 
+
     public void addMerchant(Merchant m) {
         merchants.add(m);
     }
 
+
     public KerberosPrincipal getKerberosP() {
         return this.kerberosP;
     }
+
 
     public int signUp(Costumer c){
         costumers.add(c);
         return costumers.size() - 1;
     }
 
+
     public PublicKey getPK() {
         return rsaKey.getPublic();
     }
+
 
     public String toString() {
         return "Netbill " + this.name;
