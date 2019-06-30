@@ -2,7 +2,9 @@ import java.security.*;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Date;
 import java.util.Random;
+import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.security.auth.kerberos.*;
@@ -65,14 +67,13 @@ public class Netbill implements Runnable{
 
 
     /**
-     * TODO add kerberos ticket and save information
-     * TODO add merchant registration
+     * TODO save information
      * @param nonce
      * @param encodedKey
      * @return
      * @throws Exception
      */
-    public ArrayList<String> register(String nonce, ArrayList<String> encodedKey) throws Exception {
+    public ArrayList<String> register(KerberosPrincipal kp, String nonce, ArrayList<String> encodedKey) throws Exception {
         encodedKey = new SecFunctions().decrypt(encodedKey, rsaKey.getPrivate(), null, "RSA");
         byte[] decodedKey = Base64.getDecoder().decode(encodedKey.get(0));
         SecretKey key = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
@@ -81,6 +82,10 @@ public class Netbill implements Runnable{
         request.add(String.valueOf(rand.nextInt(100000000) + 100000000));
         request.add(String.valueOf(userNumber));
         userNumber += 1;
-        return request;
+        KerberosTicket ticket = new SecFunctions().getKerberosTicket(kp, kerberosP, new Date());
+        request.add(ticket.toString());
+        SecretKey seskey = KeyGenerator.getInstance("AES").generateKey();
+        request.add(String.valueOf(Base64.getEncoder().encodeToString(seskey.getEncoded())));
+        return new SecFunctions().encrypt(request, null, key, "AES");
     }
 }

@@ -21,6 +21,7 @@ public class Costumer implements Runnable {
     private Netbill netbill;
     private String kticket;
     private String netbillTicket;
+    private SecretKey netbillKey;
     private SecretKey sessionKey;
     private String encryptedProduct;
     private String account;
@@ -72,16 +73,23 @@ public class Costumer implements Runnable {
     }
 
 
+    /**
+     * It creates an account on Netbill server and shares a symmetric key with the netbill
+     * @throws Exception
+     */
     private void signUpAccount() throws Exception{
         SecretKey key = KeyGenerator.getInstance("AES").generateKey();
         accountNonce = netbill.getNonce();
         ArrayList<String> keystr = new ArrayList<String>();
-        keystr.add(String.valueOf(Base64.getEncoder().encodeToString(sessionKey.getEncoded())));
-        ArrayList<String> info = netbill.register(accountNonce, new SecFunctions().encrypt(keystr, netbill.getPK(), null, "RSA"));
+        keystr.add(String.valueOf(Base64.getEncoder().encodeToString(key.getEncoded())));
+
+        ArrayList<String> info = netbill.register(kerberosP, accountNonce, new SecFunctions().encrypt(keystr, netbill.getPK(), null, "RSA"));
         info = new SecFunctions().decrypt(info, null, key, "AES");
         account = info.get(0);
         userID = info.get(1);
-        //netbillTicket = info.get(2);
+        netbillTicket = info.get(2);
+        byte[] decodedKey = Base64.getDecoder().decode(info.get(3));
+        netbillKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
     }
 
 

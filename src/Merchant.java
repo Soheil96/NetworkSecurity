@@ -1,3 +1,4 @@
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -13,6 +14,7 @@ public class Merchant implements Runnable {
     private KeyPair rsaKey;
     private String userID;
     private KerberosPrincipal kerberosP;
+    private SecretKey netbillKey;
     private String netbillTicket;
     private Netbill netbill;
     private String account;
@@ -23,20 +25,41 @@ public class Merchant implements Runnable {
 
     @Override
     public void run() {
-        try {
-            TimeUnit.SECONDS.sleep(1);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
         KeyPairGenerator keyGen = null;
         try {
+            TimeUnit.SECONDS.sleep(1);
+            signUpAccount();
             keyGen = KeyPairGenerator.getInstance("RSA");
             rsaKey = keyGen.genKeyPair();
-            keyGen.initialize(1024, new SecureRandom());
+            keyGen.initialize(1024, new SecureRandom(userID.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
             e.printStackTrace();
         }
         System.out.println("Merchant " + name + " is online!");
+    }
+
+
+    /**
+     * It creates an account on Netbill server and shares a symmetric key with the netbill
+     * @throws Exception
+     */
+    private void signUpAccount() throws Exception{
+        SecretKey key = KeyGenerator.getInstance("AES").generateKey();
+        accountNonce = netbill.getNonce();
+        ArrayList<String> keystr = new ArrayList<String>();
+        keystr.add(String.valueOf(Base64.getEncoder().encodeToString(key.getEncoded())));
+
+        ArrayList<String> info = netbill.register(kerberosP, accountNonce, new SecFunctions().encrypt(keystr, netbill.getPK(), null, "RSA"));
+        info = new SecFunctions().decrypt(info, null, key, "AES");
+        account = info.get(0);
+        userID = info.get(1);
+        netbillTicket = info.get(2);
+        byte[] decodedKey = Base64.getDecoder().decode(info.get(3));
+        netbillKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
     }
 
 
