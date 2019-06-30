@@ -211,6 +211,30 @@ public class Merchant implements Runnable {
     }
 
 
+    /**
+     * It's for depositing and withdrawing from netbill account to bank account
+     * @param value
+     * @param type 0 means deposit and 1 means withdraw
+     * @throws Exception
+     */
+    public void depositWithdraw(int value, int type) throws Exception {
+        ArrayList<String> details = new ArrayList<String>();
+        details.add(account);
+        details.add(userID);
+        details.add(accountNonce);
+        details.add(String.valueOf(value));
+        details = new SecFunctions().encrypt(details, null, netbillKey, "AES");
+        if (!netbill.depositWithdraw(netbillTicket, details, type)) {
+            System.out.println(name + " : Transaction failed, credentials are wrong!");
+            return;
+        }
+        if (type == 0)
+            System.out.println(name + " : Deposit successful!");
+        else
+            System.out.println(name + " : Withdraw successful!");
+    }
+
+
     public String toString() {
         return "Merchant " + this.name;
     }

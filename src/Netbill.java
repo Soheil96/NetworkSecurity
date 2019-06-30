@@ -1,9 +1,5 @@
 import java.security.*;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Date;
-import java.util.Random;
+import java.util.*;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -15,6 +11,8 @@ public class Netbill implements Runnable{
     private KeyPair rsaKey;
     private KerberosPrincipal kerberosP;
     private int userNumber = 1402;
+    private Map<String, Account> accounts = new HashMap<String, Account>();
+    private Map<String, SecretKey> keys = new HashMap<String, SecretKey>();
 
 
     @Override
@@ -42,11 +40,6 @@ public class Netbill implements Runnable{
             t = new Thread (this, "Netbill" + name);
             t.start ();
         }
-    }
-
-
-    public KerberosPrincipal getKerberosP() {
-        return this.kerberosP;
     }
 
 
@@ -86,6 +79,47 @@ public class Netbill implements Runnable{
         request.add(ticket.toString());
         SecretKey seskey = KeyGenerator.getInstance("AES").generateKey();
         request.add(String.valueOf(Base64.getEncoder().encodeToString(seskey.getEncoded())));
+
+        Account account = new Account();
+        account.kp = kp;
+        account.nonce = nonce;
+        account.user = request.get(1);
+        account.value = 0;
+        accounts.put(request.get(0), account);
+        keys.put(request.get(2), seskey);
         return new SecFunctions().encrypt(request, null, key, "AES");
     }
+
+
+    /**
+     * It's for depositing and withdrawing from netbill account to bank account
+     * @param ticket
+     * @param request
+     * @param type 0 means deposit and 1 means withdraw
+     * @throws Exception
+     */
+    public boolean depositWithdraw(String ticket, ArrayList<String> request, int type) throws Exception {
+        if (keys.get(ticket) == null)
+            return false;
+        request = new SecFunctions().decrypt(request, null, keys.get(ticket), "AES");
+        if (accounts.get(request.get(0)) == null)
+            return false;
+        Account account = accounts.get(request.get(0));
+        if (!account.user.equals(request.get(1)) || !account.nonce.equals(request.get(2)))
+            return false;
+
+        if (type == 0)
+            account.value += Integer.parseInt(request.get(3));
+        else
+            account.value -= Integer.parseInt(request.get(3));
+        return true;
+    }
+}
+
+
+class Account {
+    KerberosPrincipal kp;
+    int value;
+    String user;
+    String nonce;
 }
