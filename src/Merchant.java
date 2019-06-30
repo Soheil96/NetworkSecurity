@@ -1,6 +1,7 @@
 import java.security.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -10,14 +11,23 @@ public class Merchant implements Runnable {
     private Thread t;
     private String name;
     private KeyPair rsaKey;
+    private String userID;
     private KerberosPrincipal kerberosP;
+    private String netbillTicket;
     private Netbill netbill;
+    private String account;
+    private String accountNonce;
     private Map<String, String> products = new HashMap<String, String>();
     private Map<Costumer, Profile> map = new HashMap<Costumer, Profile>();
 
 
     @Override
     public void run() {
+        try {
+            TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         KeyPairGenerator keyGen = null;
         try {
             keyGen = KeyPairGenerator.getInstance("RSA");
@@ -189,8 +199,6 @@ class Profile {
     SecretKey productKey;
     KerberosTicket ticket;
     ArrayList<String> serialNumbers = new ArrayList<String>();
-    String username;
-    String password;
     String tid;
     String lastPrice;
     String lastProduct;

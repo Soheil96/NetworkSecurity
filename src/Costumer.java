@@ -3,34 +3,44 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import javax.security.auth.kerberos.*;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.ArrayList;
 import java.sql.Timestamp;
 import java.util.Base64;
 import java.util.Date;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 public class Costumer implements Runnable {
     private Thread t;
     private String name;
-    private int userID;
+    private String userID;
     private KeyPair rsaKey;
     private KerberosPrincipal kerberosP;
     private Netbill netbill;
     private String kticket;
+    private String netbillTicket;
     private SecretKey sessionKey;
     private String encryptedProduct;
+    private String account;
+    private String accountNonce;
 
 
     @Override
     public void run() {
-        userID = netbill.signUp(this);
         KeyPairGenerator keyGen = null;
         try {
+            TimeUnit.SECONDS.sleep(1);
+            signUpAccount();
             keyGen = KeyPairGenerator.getInstance("RSA");
             rsaKey = keyGen.genKeyPair();
-            keyGen.initialize(1024, new SecureRandom(ByteBuffer.allocate(4).putInt(userID).array()));
+            keyGen.initialize(1024, new SecureRandom(userID.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
             e.printStackTrace();
         }
         System.out.println("Costumer " + name + " is online!");
@@ -59,6 +69,19 @@ public class Costumer implements Runnable {
 
     public PublicKey getPK() {
         return rsaKey.getPublic();
+    }
+
+
+    private void signUpAccount() throws Exception{
+        SecretKey key = KeyGenerator.getInstance("AES").generateKey();
+        accountNonce = netbill.getNonce();
+        ArrayList<String> keystr = new ArrayList<String>();
+        keystr.add(String.valueOf(Base64.getEncoder().encodeToString(sessionKey.getEncoded())));
+        ArrayList<String> info = netbill.register(accountNonce, new SecFunctions().encrypt(keystr, netbill.getPK(), null, "RSA"));
+        info = new SecFunctions().decrypt(info, null, key, "AES");
+        account = info.get(0);
+        userID = info.get(1);
+        //netbillTicket = info.get(2);
     }
 
 
