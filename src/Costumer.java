@@ -108,7 +108,7 @@ public class Costumer implements Runnable {
 
         EPO.add(netbillTicket);
         acc.add(kerberosP.toString());
-        System.out.println("Product received! comment on the payment?");
+        System.out.println(name + "Product received! comment on the payment?");
         Scanner scanner = new Scanner(System.in);
         acc.add(scanner.nextLine());
         acc = new SecFunctions().encrypt(acc, null, netbillKey, "AES");

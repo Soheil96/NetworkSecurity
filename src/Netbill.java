@@ -114,6 +114,11 @@ public class Netbill implements Runnable{
             account.value -= Integer.parseInt(request.get(3));
         return true;
     }
+
+
+    public void transaction(Merchant merchant, ArrayList<String> EPO) {
+
+    }
 }
 
 

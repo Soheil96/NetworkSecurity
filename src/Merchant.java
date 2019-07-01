@@ -20,7 +20,7 @@ public class Merchant implements Runnable {
     private String account;
     private String accountNonce;
     private Map<String, String> products = new HashMap<String, String>();
-    private Map<Costumer, Profile> map = new HashMap<Costumer, Profile>();
+    private Map<Costumer, Profile> profiles = new HashMap<Costumer, Profile>();
 
 
     @Override
@@ -100,7 +100,7 @@ public class Merchant implements Runnable {
      * @return
      */
     public ArrayList<String> goodDelivery(Costumer costumer, ArrayList<String> details) throws Exception {
-        Profile costumerProfile = map.get(costumer);
+        Profile costumerProfile = profiles.get(costumer);
         if (!costumerProfile.ticket.toString().equals(details.get(details.size() - 1)) ||
                 costumerProfile.ticket.getEndTime().compareTo(new Date()) < 0)
             return null;
@@ -151,7 +151,7 @@ public class Merchant implements Runnable {
      * @throws Exception
      */
     public ArrayList<String> askPrice(Costumer costumer, ArrayList<String> details) throws Exception{
-        Profile costumerProfile = map.get(costumer);
+        Profile costumerProfile = profiles.get(costumer);
         if (!costumerProfile.ticket.toString().equals(details.get(details.size() - 1)) ||
                 costumerProfile.ticket.getEndTime().compareTo(new Date()) < 0)
             return null;
@@ -199,10 +199,10 @@ public class Merchant implements Runnable {
                 new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(details.get(2)));
         SecretKey sessionKey = createSymmetricKey();
 
-        if (map.get(costumer) == null)
-            map.put(costumer, new Profile());
-        map.get(costumer).ticket = ticket;
-        map.get(costumer).sessionKey = sessionKey;
+        if (profiles.get(costumer) == null)
+            profiles.put(costumer, new Profile());
+        profiles.get(costumer).ticket = ticket;
+        profiles.get(costumer).sessionKey = sessionKey;
 
         ArrayList<String> request = new ArrayList<String>();
         request.add(String.valueOf(Base64.getEncoder().encodeToString(sessionKey.getEncoded())));
@@ -240,8 +240,18 @@ public class Merchant implements Runnable {
      * @param costumer
      * @param EPO
      */
-    public void payment(Costumer costumer, ArrayList<String> EPO) {
-        System.out.println("Payment!");
+    public void payment(Costumer costumer, ArrayList<String> EPO) throws Exception {
+        EPO.remove(EPO.size() - 1);
+        EPO = new SecFunctions().decrypt(EPO, null, profiles.get(costumer).sessionKey, "AES");
+        EPO.add(account);
+        EPO.add(String.valueOf(Base64.getEncoder().encodeToString(profiles.get(costumer).productKey.getEncoded())));
+        System.out.println(name + "Payment received! comment on the payment?");
+        Scanner scanner = new Scanner(System.in);
+        EPO.add(scanner.nextLine());
+        EPO.add(new SecFunctions().sign(EPO, rsaKey.getPrivate()));
+        EPO = new SecFunctions().encrypt(EPO, null, netbillKey, "AES");
+        EPO.add(netbillTicket);
+        netbill.transaction(this, EPO);
     }
 
 
