@@ -235,6 +235,16 @@ public class Merchant implements Runnable {
     }
 
 
+    /**
+     * TODO
+     * @param costumer
+     * @param EPO
+     */
+    public void payment(Costumer costumer, ArrayList<String> EPO) {
+        System.out.println("Payment!");
+    }
+
+
     public String toString() {
         return "Merchant " + this.name;
     }

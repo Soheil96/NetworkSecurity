@@ -93,12 +93,31 @@ public class Costumer implements Runnable {
 
 
     /**
-     * TODO
+     * It creates a payment order and signs it
      * @param merchant
      * @param EPOID
      */
-    private void signPayment(Merchant merchant, ArrayList<String> EPOID) {
-        System.out.println("Product received!");
+    private void signPayment(Merchant merchant, ArrayList<String> EPOID, ArrayList<String> EPO) throws Exception {
+        EPO.add(userID);
+        EPO.add(merchant.getKerberosP().toString());
+        ArrayList<String> acc = new ArrayList<String>();
+        acc.add(account);
+        acc.add(accountNonce);
+        EPO.add(new SecFunctions().cryptographicChecksum(acc));
+        EPO.addAll(EPOID);
+
+        EPO.add(netbillTicket);
+        acc.add(kerberosP.toString());
+        System.out.println("Product received! comment on the payment?");
+        Scanner scanner = new Scanner(System.in);
+        acc.add(scanner.nextLine());
+        acc = new SecFunctions().encrypt(acc, null, netbillKey, "AES");
+        EPO.addAll(acc);
+
+        EPO.add(new SecFunctions().sign(EPO, rsaKey.getPrivate()));
+        EPO = new SecFunctions().encrypt(EPO, null, sessionKey, "AES");
+        EPO.add(kticket);
+        merchant.payment(this, EPO);
     }
 
 
@@ -108,7 +127,7 @@ public class Costumer implements Runnable {
      * @param tid
      * @throws Exception
      */
-    private void acceptOffer(Merchant merchant, int tid) throws Exception {
+    private void acceptOffer(Merchant merchant, int tid, ArrayList<String> EPO) throws Exception {
         ArrayList <String> request = new ArrayList<String>();
         request.add(String.valueOf(tid));
         request = new SecFunctions().encrypt(request, null, sessionKey, "AES");
@@ -125,11 +144,13 @@ public class Costumer implements Runnable {
         ArrayList<String> good = new ArrayList<String>();
         good.add(encryptedProduct);
         String checksum = new SecFunctions().cryptographicChecksum(good);
-        if (!checksum.equals(request.get(request.size() - 1)))
+        String goodChecksum = request.get(request.size() - 1);
+        if (!checksum.equals(goodChecksum))
             System.out.println(name + " : Checksum failed!");
         else {
+            EPO.add(goodChecksum);
             request.remove(request.size() - 1);
-            signPayment(merchant, request);
+            signPayment(merchant, request, EPO);
         }
     }
 
@@ -137,34 +158,36 @@ public class Costumer implements Runnable {
     /**
      * This function indicates the purchase will still in the price negotiation phase or will go to the delivery phase
      * @param merchant
-     * @param pName
      * @param tid
      * @param details is the reply from the merchant
+     * @param EPO
      * @throws Exception
      */
-    private void decidePurchase(Merchant merchant, String pName, int tid, ArrayList<String> details) throws Exception{
+    private void decidePurchase(Merchant merchant, int tid, ArrayList<String> details, ArrayList<String> EPO) throws Exception{
         if (details == null) {
             System.out.println(name + " : Ticket not valid or expired!");
             return;
         }
         details = new SecFunctions().decrypt(details, null, sessionKey, "AES");
         if (details.get(2).equals("1")) {
-            System.out.println(name + " : The merchant doesn't have the product " + pName + "!");
+            System.out.println(name + " : The merchant doesn't have the product " + EPO.get(0) + "!");
             return;
         }
 
-        System.out.println(name + " : Merchant's suggested price for the product " + pName + " is " + details.get(1));
+        System.out.println(name + " : Merchant's suggested price for the product " + EPO.get(0) + " is " + details.get(1));
         Scanner scanner = new Scanner(System.in);
         System.out.println("Accept or Deny or NewOffer?");
         String ans = scanner.next();
         if (ans.equals("Deny"))
             return;
         if (ans.equals("Accept")) {
-            acceptOffer(merchant, tid);
+            EPO.add(new SecFunctions().cryptographicChecksum(EPO));
+            EPO.add(details.get(1));
+            acceptOffer(merchant, tid, EPO);
             return;
         }
         System.out.println("New price offer: ");
-        startPurchase(merchant, pName, scanner.nextInt(), tid + 1);
+        startPurchase(merchant, EPO.get(0), scanner.nextInt(), tid + 1);
     }
 
 
@@ -196,8 +219,11 @@ public class Costumer implements Runnable {
         request.add(String.valueOf(tid));
         request = new SecFunctions().encrypt(request, null, sessionKey, "AES");
         request.add(kticket);
+
         ArrayList<String> answer = merchant.askPrice(this, request);
-        decidePurchase(merchant, pName, tid, answer);
+        request.clear();
+        request.add(pName);
+        decidePurchase(merchant, tid, answer, request);
     }
 
 

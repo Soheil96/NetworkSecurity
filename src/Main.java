@@ -33,7 +33,7 @@ public class Main {
         m2.addProduct("p1", "product1");
         m2.addProduct("p3", "product3");
         c1.depositWithdraw(350, 0);
-        c2.depositWithdraw(50, 0);
+        //c2.depositWithdraw(50, 0);
         //c1.startPurchase(m1, "p3", 100, 0);
         //c1.startPurchase(m2, "p3", 100, 0);
         c1.startPurchase(m1, "p1", 100, 0);
