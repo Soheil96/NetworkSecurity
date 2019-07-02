@@ -30,8 +30,8 @@ public class Merchant implements Runnable {
             TimeUnit.SECONDS.sleep(1);
             signUpAccount();
             keyGen = KeyPairGenerator.getInstance("RSA");
-            rsaKey = keyGen.genKeyPair();
             keyGen.initialize(1024, new SecureRandom(userID.getBytes(StandardCharsets.UTF_8)));
+            rsaKey = keyGen.genKeyPair();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -150,7 +150,7 @@ public class Merchant implements Runnable {
      * @return
      * @throws Exception
      */
-    public ArrayList<String> askPrice(Costumer costumer, ArrayList<String> details) throws Exception{
+    public ArrayList<String> askPrice(Costumer costumer, ArrayList<String> details, ArrayList<String> groupinfo, Group group) throws Exception{
         Profile costumerProfile = profiles.get(costumer);
         if (!costumerProfile.ticket.toString().equals(details.get(details.size() - 1)) ||
                 costumerProfile.ticket.getEndTime().compareTo(new Date()) < 0)
@@ -173,6 +173,12 @@ public class Merchant implements Runnable {
         System.out.println(name + " : A costumer requested product " + details.get(1) + " for the price of " + details.get(2));
         System.out.println("Suggested amount :");
         request.set(1, scanner.next());
+        if (groupinfo != null) {
+            String signature = groupinfo.get(groupinfo.size() - 1);
+            groupinfo.remove(groupinfo.size() - 1);
+            if (new SecFunctions().verify(groupinfo, signature, group.getPK()))
+                request.set(1, String.valueOf((int)(Integer.parseInt(request.get(1)) * 0.9)));
+        }
         costumerProfile.lastPrice = request.get(1);
         costumerProfile.tid = request.get(3);
         return new SecFunctions().encrypt(request, null, costumerProfile.sessionKey, "AES");

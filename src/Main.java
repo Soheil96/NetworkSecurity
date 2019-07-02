@@ -22,23 +22,27 @@ public class Main {
         KerberosPrincipal kc2 = new KerberosPrincipal("c2@COSTUMER.COM");
         Costumer c2 = new Costumer("c2", kc2, n1);
         c2.start();
+        Group g1 = new Group("g1");
 
 
         /**
          * Testing phase
          */
         TimeUnit.SECONDS.sleep(10);
-        m1.addProduct("p1", "product1");
-        m1.addProduct("p2", "product2");
-        m2.addProduct("p1", "product1");
-        m2.addProduct("p3", "product3");
+        m1.addProduct("p1", "product**1**");
+        m1.addProduct("p2", "product**2**");
+        m2.addProduct("p1", "product**1**");
+        m2.addProduct("p3", "product**3**");
+        c1.addGroup(g1);
+        TimeUnit.SECONDS.sleep(5);
         c1.depositWithdraw(350, 0);
+        n1.setLimit(kc1);
         m1.depositWithdraw(100, 1);
         c2.depositWithdraw(50, 0);
-        c1.startPurchase(m1, "p3", 100, 0);
-        c1.startPurchase(m2, "p3", 100, 0);
-        c1.startPurchase(m1, "p1", 100, 0);
-        c2.startPurchase(m1, "p2", 100, 0);
+        c1.startPurchase(m1, "p3", 100, 0, 0, null);
+        c1.startPurchase(m2, "p3", 100, 0, 0, null);
+        c1.startPurchase(m1, "p1", 100, 0, 1, g1);
+        c2.startPurchase(m1, "p2", 100, 0, 0, null);
         m1.depositWithdraw(100, 1);
     }
 }

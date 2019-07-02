@@ -11,14 +11,17 @@ import java.util.concurrent.TimeUnit;
 public class Costumer implements Runnable {
     private Thread t;
     private String name;
+    private String trueUserID;
     private String userID;
     private KeyPair rsaKey;
     private KerberosPrincipal kerberosP;
     private Netbill netbill;
     private String kticket;
     private String netbillTicket;
+    private String groupTicket;
     private SecretKey netbillKey;
     private SecretKey sessionKey;
+    private SecretKey groupKey;
     private String encryptedProduct;
     private String account;
     private String accountNonce;
@@ -31,8 +34,8 @@ public class Costumer implements Runnable {
             TimeUnit.SECONDS.sleep(1);
             signUpAccount();
             keyGen = KeyPairGenerator.getInstance("RSA");
+            keyGen.initialize(1024, new SecureRandom(trueUserID.getBytes(StandardCharsets.UTF_8)));
             rsaKey = keyGen.genKeyPair();
-            keyGen.initialize(1024, new SecureRandom(userID.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         } catch (InterruptedException e) {
@@ -69,6 +72,14 @@ public class Costumer implements Runnable {
     }
 
 
+    public void addGroup(Group group) throws Exception {
+        ArrayList<String> details = group.addMember(this);
+        groupTicket = details.get(0);
+        byte[] decodedKey = Base64.getDecoder().decode(details.get(1));
+        groupKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
+    }
+
+
     /**
      * It creates an account on Netbill server and shares a symmetric key with the netbill
      * @throws Exception
@@ -82,12 +93,11 @@ public class Costumer implements Runnable {
         ArrayList<String> info = netbill.register(kerberosP, accountNonce, new SecFunctions().encrypt(keystr, netbill.getPK(), null, "RSA"));
         info = new SecFunctions().decrypt(info, null, key, "AES");
         account = info.get(0);
-        userID = info.get(1);
+        trueUserID = info.get(1);
         netbillTicket = info.get(2);
         byte[] decodedKey = Base64.getDecoder().decode(info.get(3));
         netbillKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
     }
-
 
 
     public void decryptProduct(ArrayList<String> receipt) throws Exception {
@@ -119,7 +129,7 @@ public class Costumer implements Runnable {
         EPO.addAll(EPOID);
 
         EPO.add(netbillTicket);
-        acc.add(kerberosP.toString());
+        acc.add(trueUserID);
         System.out.println(name + " : Product received! comment on the payment?");
         Scanner scanner = new Scanner(System.in);
         acc.add(scanner.nextLine());
@@ -175,7 +185,7 @@ public class Costumer implements Runnable {
      * @param EPO
      * @throws Exception
      */
-    private void decidePurchase(Merchant merchant, int tid, ArrayList<String> details, ArrayList<String> EPO) throws Exception{
+    private void decidePurchase(Merchant merchant, int tid, ArrayList<String> details, ArrayList<String> EPO, Group group) throws Exception{
         if (details == null) {
             System.out.println(name + " : Ticket not valid or expired!");
             return;
@@ -199,7 +209,7 @@ public class Costumer implements Runnable {
             return;
         }
         System.out.println("New price offer: ");
-        startPurchase(merchant, EPO.get(0), scanner.nextInt(), tid + 1);
+        startPurchase(merchant, EPO.get(0), scanner.nextInt(), tid + 1, 0, group);
     }
 
 
@@ -209,11 +219,12 @@ public class Costumer implements Runnable {
      * @param pName
      * @param bid
      * @param tid
+     * @param type 0 means true identity and 1 means pseudonym
      * @throws Exception
      */
-    public void startPurchase(Merchant merchant, String pName, int bid, int tid) throws Exception{
+    public void startPurchase(Merchant merchant, String pName, int bid, int tid, int type, Group group) throws Exception{
         if (tid == 0) {
-            ArrayList<String> keyTicket = getSessionKey(merchant);
+            ArrayList<String> keyTicket = getSessionKey(merchant, type);
             if (keyTicket == null) {
                 System.out.println(name + " : The signature rejected by the merchant!");
                 return;
@@ -224,7 +235,7 @@ public class Costumer implements Runnable {
         }
 
         ArrayList<String> request = new ArrayList<String>();
-        request.add(this.name);
+        request.add(userID);
         request.add(pName);
         request.add(String.valueOf(bid));
         request.add("0");
@@ -232,37 +243,57 @@ public class Costumer implements Runnable {
         request = new SecFunctions().encrypt(request, null, sessionKey, "AES");
         request.add(kticket);
 
-        ArrayList<String> answer = merchant.askPrice(this, request);
+        ArrayList<String> answer = null;
+        if (group == null) {
+            answer = merchant.askPrice(this, request, null, null);
+        } else {
+            ArrayList<String>greq = new ArrayList<String>();
+            greq.add(group.toString());
+            greq.add(account);
+            greq.add(userID);
+            greq = new SecFunctions().encrypt(greq, null, groupKey, "AES");
+            answer = merchant.askPrice(this, request, group.getSignature(groupTicket, greq), group);
+        }
         request.clear();
         request.add(pName);
-        decidePurchase(merchant, tid, answer, request);
+        decidePurchase(merchant, tid, answer, request, group);
     }
 
 
     /**
      * Contacts the merchant to get session key before initiating the purchase process
      * @param merchant
+     * @param type 0 means true identity and 1 means pseudonym
      * @return
      * @throws Exception
      */
-    private ArrayList<String> getSessionKey(Merchant merchant) throws Exception{
+    private ArrayList<String> getSessionKey(Merchant merchant, int type) throws Exception{
         ArrayList<String> request = new ArrayList<String>();
-        request.add(String.valueOf(userID));
+        if (type == 1) {
+            ArrayList<String> preq = new ArrayList<String>();
+            preq.add(trueUserID);
+            preq.add(String.valueOf(new Timestamp(new Date().getTime())));
+            preq = new SecFunctions().encrypt(preq, null, netbillKey, "AES");
+            preq.add(new SecFunctions().sign(preq, rsaKey.getPrivate()));
+            preq.add(netbillTicket);
+            preq = netbill.getPseudonym(merchant, preq);
+            userID = preq.get(5);
+            request.add(preq.get(3));
+        } else {
+            userID = trueUserID;
+            request.add(userID);
+        }
+
         request.add(merchant.toString());
         request.add(String.valueOf(new Timestamp(new Date().getTime())));
         SecretKey key = KeyGenerator.getInstance("AES").generateKey();
         String encodedKey = Base64.getEncoder().encodeToString(key.getEncoded());
-        request.add(String.valueOf(encodedKey));
+        request.add(encodedKey);
 
         request = new SecFunctions().encrypt(request, merchant.getPK(), null, "RSA");
         request.add(new SecFunctions().sign(request, rsaKey.getPrivate()));
         ArrayList<String> answer = merchant.getTicket(this, request);
         return new SecFunctions().decrypt(answer, null, key, "AES");
-    }
-
-
-    public String toString() {
-        return "Costumer " + this.name;
     }
 
 
@@ -275,7 +306,7 @@ public class Costumer implements Runnable {
     public void depositWithdraw(int value, int type) throws Exception {
         ArrayList<String> details = new ArrayList<String>();
         details.add(account);
-        details.add(userID);
+        details.add(trueUserID);
         details.add(accountNonce);
         details.add(String.valueOf(value));
         details = new SecFunctions().encrypt(details, null, netbillKey, "AES");
@@ -287,5 +318,10 @@ public class Costumer implements Runnable {
             System.out.println(name + " : Deposit successful!");
         else
             System.out.println(name + " : Withdraw successful!");
+    }
+
+
+    public String toString() {
+        return "Costumer " + this.name;
     }
 }

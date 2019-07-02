@@ -1,4 +1,3 @@
-import java.lang.reflect.Array;
 import java.security.*;
 import java.util.*;
 import javax.crypto.KeyGenerator;
@@ -22,8 +21,8 @@ public class Netbill implements Runnable{
         KeyPairGenerator keyGen = null;
         try {
             keyGen = KeyPairGenerator.getInstance("RSA");
-            rsaKey = keyGen.genKeyPair();
             keyGen.initialize(1024, new SecureRandom());
+            rsaKey = keyGen.genKeyPair();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
@@ -163,6 +162,13 @@ public class Netbill implements Runnable{
         int price =  Integer.parseInt(EPO.get(2));
         if (costumerAccount.value < price)
             return new ArrayList<String>(Arrays.asList("The costumer's balance is not enough!"));
+        if (costumerAccount.limit) {
+            System.out.println(name + " : Does the" + costumer.toString() + " have the permission to buy " + EPO.get(0)
+            + " for " + EPO.get(2) + "$? (Yes/No)");
+            Scanner scanner = new Scanner(System.in);
+            if (scanner.next().equals("No"))
+                return new ArrayList<String>(Arrays.asList("The costumer doesn't have the permission to purchase"));
+        }
 
         costumerAccount.value -= price;
         merchantAccount.value += price;
@@ -192,12 +198,40 @@ public class Netbill implements Runnable{
         receipt = new SecFunctions().encrypt(receipt, null, keyMN, "AES");
         return receipt;
     }
+
+
+    public void setLimit (KerberosPrincipal kp) {
+        for (Map.Entry<String, Account> entry : accounts.entrySet())
+            if (entry.getValue().kp.equals(kp))
+                entry.getValue().limit = true;
+    }
+
+
+    public ArrayList<String> getPseudonym(Merchant merchant, ArrayList<String> request) throws Exception {
+        String ticket = request.get(request.size() - 1);
+        request.remove(request.size() - 1);
+        request.remove(request.size() - 1);
+        request = new SecFunctions().decrypt(request, null, keys.get(ticket), "AES");
+        Random rand = new Random();
+        String ID = request.get(0);
+        request.set(0, String.valueOf(rand.nextInt(1000000) + 1000000));
+
+        ArrayList<String> details = new ArrayList<String>();
+        details.addAll(request);
+        details.add(ID);
+        details.add(new SecFunctions().sign(details, rsaKey.getPrivate()));
+        request = new SecFunctions().encrypt(request, merchant.getPK(), null, "RSA");
+        request.add(new SecFunctions().sign(request, rsaKey.getPrivate()));
+        request.addAll(details);
+        return request;
+    }
 }
 
 
 class Account {
     KerberosPrincipal kp;
     int value;
+    boolean limit = false;
     String user;
     String nonce;
 }
