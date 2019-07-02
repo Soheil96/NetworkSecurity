@@ -8,7 +8,7 @@ public class Main {
          * Setup phase
          */
         KerberosPrincipal kn1 = new KerberosPrincipal("n1@NETBILL.COM");
-        Netbill n1 = new Netbill("n1", kn1);
+        Netbill n1 = new Netbill("netbill", kn1);
         n1.start();
         KerberosPrincipal km1 = new KerberosPrincipal("m1@MERCHANT.COM");
         Merchant m1 = new Merchant("m1", km1, n1);
@@ -27,17 +27,18 @@ public class Main {
         /**
          * Testing phase
          */
-        TimeUnit.SECONDS.sleep(5);
+        TimeUnit.SECONDS.sleep(10);
         m1.addProduct("p1", "product1");
         m1.addProduct("p2", "product2");
         m2.addProduct("p1", "product1");
         m2.addProduct("p3", "product3");
         c1.depositWithdraw(350, 0);
-        //c2.depositWithdraw(50, 0);
-        //c1.startPurchase(m1, "p3", 100, 0);
-        //c1.startPurchase(m2, "p3", 100, 0);
+        m1.depositWithdraw(100, 1);
+        c2.depositWithdraw(50, 0);
+        c1.startPurchase(m1, "p3", 100, 0);
+        c1.startPurchase(m2, "p3", 100, 0);
         c1.startPurchase(m1, "p1", 100, 0);
-        //c2.startPurchase(m1, "p2", 100, 0);
-        //m1.depositWithdraw(100, 1);
+        c2.startPurchase(m1, "p2", 100, 0);
+        m1.depositWithdraw(100, 1);
     }
 }

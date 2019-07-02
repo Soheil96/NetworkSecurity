@@ -4,11 +4,8 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.security.auth.kerberos.*;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.util.ArrayList;
+import java.util.*;
 import java.sql.Timestamp;
-import java.util.Base64;
-import java.util.Date;
-import java.util.Scanner;
 import java.util.concurrent.TimeUnit;
 
 public class Costumer implements Runnable {
@@ -92,6 +89,21 @@ public class Costumer implements Runnable {
     }
 
 
+
+    public void decryptProduct(ArrayList<String> receipt) throws Exception {
+        if (receipt == null) {
+            System.out.println(name + " : Transaction Failed!");
+            return;
+        }
+        receipt = new SecFunctions().decrypt(receipt, null, sessionKey, "AES");
+        byte[] decodedKey = Base64.getDecoder().decode(receipt.get(0));
+        SecretKey productKey = new SecretKeySpec(decodedKey, 0, decodedKey.length, "AES");
+        String product = new SecFunctions().decrypt(new ArrayList<String>(Arrays.asList(encryptedProduct)), null, productKey, "AES").get(0);
+        System.out.println(name + " : Mission completed!");
+        System.out.println(product);
+    }
+
+
     /**
      * It creates a payment order and signs it
      * @param merchant
@@ -108,7 +120,7 @@ public class Costumer implements Runnable {
 
         EPO.add(netbillTicket);
         acc.add(kerberosP.toString());
-        System.out.println(name + "Product received! comment on the payment?");
+        System.out.println(name + " : Product received! comment on the payment?");
         Scanner scanner = new Scanner(System.in);
         acc.add(scanner.nextLine());
         acc = new SecFunctions().encrypt(acc, null, netbillKey, "AES");
@@ -117,7 +129,7 @@ public class Costumer implements Runnable {
         EPO.add(new SecFunctions().sign(EPO, rsaKey.getPrivate()));
         EPO = new SecFunctions().encrypt(EPO, null, sessionKey, "AES");
         EPO.add(kticket);
-        merchant.payment(this, EPO);
+        decryptProduct(merchant.payment(this, EPO));
     }
 
 

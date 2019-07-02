@@ -1,3 +1,4 @@
+import java.lang.reflect.Array;
 import java.security.*;
 import java.util.*;
 import javax.crypto.KeyGenerator;
@@ -13,6 +14,7 @@ public class Netbill implements Runnable{
     private int userNumber = 1402;
     private Map<String, Account> accounts = new HashMap<String, Account>();
     private Map<String, SecretKey> keys = new HashMap<String, SecretKey>();
+    private ArrayList<ArrayList<String>> transactions = new ArrayList<ArrayList<String>>();
 
 
     @Override
@@ -110,14 +112,85 @@ public class Netbill implements Runnable{
 
         if (type == 0)
             account.value += Integer.parseInt(request.get(3));
-        else
+        else if (account.value >= Integer.parseInt(request.get(3)))
             account.value -= Integer.parseInt(request.get(3));
+        else
+            return false;
         return true;
     }
 
 
-    public void transaction(Merchant merchant, ArrayList<String> EPO) {
+    public ArrayList<String> transaction(Costumer costumer, Merchant merchant, ArrayList<String> EPO)throws Exception {
+        transactions.add(EPO);
+        SecretKey keyMN = keys.get(EPO.get(EPO.size() - 1));
+        if (keyMN == null)
+            return new ArrayList<String>(Arrays.asList("The merchant is not registered!"));
+        EPO.remove(EPO.size() - 1);
+        EPO = new SecFunctions().decrypt(EPO, null, keyMN, "AES");
+        String signature = EPO.get(EPO.size() - 1);
+        EPO.remove(EPO.size() - 1);
+        if (!new SecFunctions().verify(EPO, signature, merchant.getPK()))
+            return new ArrayList<String>(Arrays.asList("The merchant's signature is fake!"));
 
+        EPO.remove(EPO.size() - 1);
+        String productKey = EPO.get(EPO.size() - 1);
+        EPO.remove(EPO.size() - 1);
+        Account merchantAccount = accounts.get(EPO.get(EPO.size() - 1));
+        EPO.remove(EPO.size() - 1);
+        if (merchantAccount == null)
+            return new ArrayList<String>(Arrays.asList("The merchant's account is not valid!"));
+        signature = EPO.get(EPO.size() - 1);
+        EPO.remove(EPO.size() - 1);
+        if (!new SecFunctions().verify(EPO, signature, costumer.getPK()))
+            return new ArrayList<String>(Arrays.asList("The costumer's signature is fake!"));
+
+        ArrayList<String>costumerInfo = new ArrayList<String>();
+        EPO.remove(EPO.size() - 1);
+        costumerInfo.add(EPO.get(EPO.size() - 1));
+        EPO.remove(EPO.size() - 1);
+        costumerInfo.add(EPO.get(EPO.size() - 1));
+        EPO.remove(EPO.size() - 1);
+        costumerInfo.add(EPO.get(EPO.size() - 1));
+        EPO.remove(EPO.size() - 1);
+        SecretKey keyCN = keys.get(EPO.get(EPO.size() - 1));
+        costumerInfo = new SecFunctions().decrypt(costumerInfo, null, keyCN, "AES");
+
+        Account costumerAccount = accounts.get(costumerInfo.get(2));
+        if (costumerAccount == null)
+            return new ArrayList<String>(Arrays.asList("The costumer's account is not valid!"));
+        if (!costumerAccount.nonce.equals(costumerInfo.get(1)))
+            return new ArrayList<String>(Arrays.asList("The costumer's credentials are wrong!"));
+        int price =  Integer.parseInt(EPO.get(2));
+        if (costumerAccount.value < price)
+            return new ArrayList<String>(Arrays.asList("The costumer's balance is not enough!"));
+
+        costumerAccount.value -= price;
+        merchantAccount.value += price;
+        System.out.println(name + " : Transaction completed. " + EPO.get(2) + "$ moved from " + costumer.toString()
+                + "'s account to " + merchant.toString() + "'account!");
+
+        ArrayList<String> EPOID = new ArrayList<String>();
+        EPOID.add(EPO.get(7));
+        EPOID.add(EPO.get(8));
+        EPOID.add(EPO.get(9));
+        EPOID.add(costumerInfo.get(2));
+        EPOID.add(String.valueOf(costumerAccount.value));
+        EPOID = new SecFunctions().encrypt(EPOID, null, keyCN, "AES");
+
+        ArrayList<String> receipt = new ArrayList<String>();
+        receipt.add(productKey);
+        receipt.add(EPO.get(0));
+        receipt.add(EPO.get(2));
+        receipt.add(EPO.get(4));
+        receipt.add(EPO.get(5));
+        receipt.add(EPO.get(7));
+        receipt.add(EPO.get(8));
+        receipt.add(EPO.get(9));
+        receipt.add(new SecFunctions().sign(receipt, rsaKey.getPrivate()));
+
+        receipt.addAll(EPOID);
+        receipt = new SecFunctions().encrypt(receipt, null, keyMN, "AES");
+        return receipt;
     }
 }
 

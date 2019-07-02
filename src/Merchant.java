@@ -240,18 +240,26 @@ public class Merchant implements Runnable {
      * @param costumer
      * @param EPO
      */
-    public void payment(Costumer costumer, ArrayList<String> EPO) throws Exception {
+    public ArrayList<String> payment(Costumer costumer, ArrayList<String> EPO) throws Exception {
         EPO.remove(EPO.size() - 1);
         EPO = new SecFunctions().decrypt(EPO, null, profiles.get(costumer).sessionKey, "AES");
         EPO.add(account);
         EPO.add(String.valueOf(Base64.getEncoder().encodeToString(profiles.get(costumer).productKey.getEncoded())));
-        System.out.println(name + "Payment received! comment on the payment?");
+        System.out.println(name + " : Payment received! comment on the payment?");
         Scanner scanner = new Scanner(System.in);
         EPO.add(scanner.nextLine());
         EPO.add(new SecFunctions().sign(EPO, rsaKey.getPrivate()));
         EPO = new SecFunctions().encrypt(EPO, null, netbillKey, "AES");
         EPO.add(netbillTicket);
-        netbill.transaction(this, EPO);
+        ArrayList<String> reciept = netbill.transaction(costumer, this, EPO);
+
+        if (reciept.size() == 1) {
+            System.out.println(name + " : The netbill replied this error --> " + reciept.get(0));
+            return null;
+        }
+        reciept = new SecFunctions().decrypt(reciept, null, netbillKey, "AES");
+        reciept = new SecFunctions().encrypt(reciept, null, profiles.get(costumer).sessionKey, "AES");
+        return reciept;
     }
 
 
